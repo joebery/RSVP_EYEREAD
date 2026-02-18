@@ -25,19 +25,12 @@
 
 ## 📸 Screenshots
 
-> **Drop your screenshots in a `/screenshots` folder in this repo and update the paths below.**
+
 
 <!-- Main app view -->
 ### Main Interface
 ![Main Interface](./screenshots/app-screenshot.png)
 
-<!-- Eye tracking active -->
-### Eye Tracking Active
-![Eye Tracking](./screenshots/eye-tracking.png)
-
-<!-- Reading in progress -->
-### Reading in Progress
-![Reading](./screenshots/reading.png)
 
 ---
 
@@ -132,19 +125,7 @@ When the eye closes, vertical distances shrink → EAR drops below threshold →
 | Safari | ⚠️ Camera may need explicit permission |
 | Mobile | ❌ Not recommended (performance) |
 
----
 
-## 📁 File Structure
-
-```
-rsvp-eyeread/
-├── rsvp-reader.html      # The entire app (single file)
-├── README.md             # This file
-└── screenshots/
-    ├── app-screenshot.png
-    ├── eye-tracking.png
-    └── reading.png
-```
 
 ---
 
