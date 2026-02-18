@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSVP Eye Reader</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f5f7;
+    --border: #d1d5db;
+    --accent: #111827;
+    --dim: #9ca3af;
+    --green: #16a34a;
+    --red: #dc2626;
+    --amber: #d97706;
+    --text: #1f2937;
+    --muted: #6b7280;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Light theme body */
+
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--amber); }
+
+  .status-bar {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .eye-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: background 0.3s;
+  }
+
+  .dot.open { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.closed { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  /* LEFT PANEL — input */
+  .left-panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 28px;
+    gap: 20px;
+  }
+
+  .panel-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  textarea {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    padding: 16px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    min-height: 180px;
+  }
+
+  textarea:focus { border-color: var(--dim); }
+  textarea::placeholder { color: var(--dim); }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .control-group label {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .control-group input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+    border-radius: 2px;
+  }
+
+  .control-group input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .control-value {
+    font-size: 0.75rem;
+    color: var(--amber);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border: none;
+    border-radius: 3px;
+    padding: 10px 20px;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    flex: 1;
+  }
+
+  .btn-primary:hover { background: #fff; }
+  .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover { border-color: var(--dim); }
+
+  /* RIGHT PANEL — reader */
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 28px;
+    gap: 24px;
+  }
+
+  .reader-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .word-display {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Orp-style focus guide */
+  .focus-guide {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--amber);
+    opacity: 0.3;
+    left: calc(50% - 20px);
+  }
+
+  .focus-guide::before,
+  .focus-guide::after {
+    content: '';
+    position: absolute;
+    left: -1px;
+    width: 4px;
+    height: 4px;
+    background: var(--amber);
+    border-radius: 50%;
+  }
+  .focus-guide::before { top: -4px; }
+  .focus-guide::after { bottom: -4px; }
+
+  #word-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 3.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--accent);
+    text-align: center;
+    transition: opacity 0.05s;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  #word-text .pivot {
+    color: var(--amber);
+  }
+
+  .paused-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.85);
+    border-radius: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .paused-overlay.visible { opacity: 1; }
+
+  .paused-text {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--red);
+    text-transform: uppercase;
+    animation: blink 1.5s infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* Progress bar */
+  .progress-track {
+    width: 100%;
+    max-width: 500px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--amber);
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: flex;
+    gap: 32px;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .stat-val {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+  }
+
+  .stat-lbl {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* Webcam preview */
+  .cam-section {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .cam-toggle {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .cam-wrapper {
+    position: relative;
+    width: 200px;
+    height: 150px;
+    border-radius: 4px;
+    overflow: visible;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: move;
+    user-select: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  .cam-inner {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 4px;
+  }
+
+  .cam-resize-handle {
+    position: absolute;
+    bottom: -6px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    background: var(--amber);
+    border-radius: 50%;
+    cursor: se-resize;
+    z-index: 10;
+    opacity: 0.8;
+  }
+
+  .cam-resize-handle:hover { opacity: 1; }
+
+  #video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    display: block;
+  }
+
+  #overlay-canvas {
+    position: absolute;
+    inset: 0;
+    transform: scaleX(-1);
+  }
+
+  .cam-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.85);
+    color: var(--muted);
+    z-index: 5;
+  }
+
+  .cam-badge.active { color: var(--green); }
+  .cam-badge.paused-eye { color: var(--red); }
+
+  /* Idle screen */
+  .idle-msg {
+    font-size: 0.8rem;
+    color: var(--dim);
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+
+  .sensitivity-note {
+    font-size: 0.65rem;
+    color: var(--dim);
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RSV<span>P</span> · EYEREAD</div>
+  <div class="status-bar">
+    <div class="eye-status">
+      <div class="dot loading" id="cam-dot"></div>
+      <span id="cam-label">CAMERA OFF</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- LEFT: Input & Config -->
+  <div class="left-panel">
+    <div class="panel-label">// input text</div>
+    <textarea id="text-input" placeholder="Paste any text here to begin reading...&#10;&#10;The program will flash one word at a time, ramping up smoothly to your target WPM. Eye tracking will pause playback when your eyes close."></textarea>
+
+    <div class="controls">
+      <div class="control-group">
+        <label>TARGET WPM</label>
+        <input type="range" id="wpm-slider" min="100" max="900" value="300" step="10">
+        <div class="control-value"><span id="wpm-val">300</span> wpm</div>
+      </div>
+      <div class="control-group">
+        <label>RAMP TIME</label>
+        <input type="range" id="ramp-slider" min="2" max="20" value="6" step="1">
+        <div class="control-value"><span id="ramp-val">6</span>s</div>
+      </div>
+      <div class="control-group">
+        <label>EYE SENSITIVITY</label>
+        <input type="range" id="sens-slider" min="1" max="10" value="5" step="0.5">
+        <div class="control-value"><span id="sens-val">5</span> / 10</div>
+      </div>
+      <div class="control-group">
+        <label>PUNCT. PAUSE</label>
+        <input type="range" id="punct-slider" min="0" max="5" value="2" step="0.5">
+        <div class="control-value"><span id="punct-val">2</span>×</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="start-btn" disabled>LOADING MODEL…</button>
+      <button class="btn-secondary" id="reset-btn">RESET</button>
+    </div>
+
+    <div class="sensitivity-note" id="sens-note">
+      Eye sensitivity: lower = only reacts to fully closed eyes; higher = pauses on heavy blinks too.
+    </div>
+  </div>
+
+  <!-- RIGHT: Reader display -->
+  <div class="right-panel">
+    <div class="reader-area">
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-val" id="stat-wpm">—</div>
+          <div class="stat-lbl">current wpm</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="stat-word">0</div>
+          <div class="stat-lbl">word</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="stat-total">0</div>
+          <div class="stat-lbl">total</div>
+        </div>
+      </div>
+
+      <div class="word-display">
+        <div class="focus-guide"></div>
+        <div id="word-text"><span class="idle-msg">ready</span></div>
+        <div class="paused-overlay" id="paused-overlay">
+          <div class="paused-text" id="paused-reason">● eyes closed</div>
+        </div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Webcam preview (fixed bottom-right) -->
+<div class="cam-section" id="cam-section">
+  <span class="cam-toggle" id="cam-toggle">hide camera</span>
+  <div class="cam-wrapper" id="cam-wrapper">
+    <div class="cam-inner">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay-canvas"></canvas>
+      <div class="cam-badge" id="cam-badge">INIT</div>
+    </div>
+    <div class="cam-resize-handle" id="cam-resize"></div>
+  </div>
+</div>
+
+<!-- face-api.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const state = {
+  words: [],
+  wordIndex: 0,
+  isPlaying: false,
+  isPaused: false,        // paused by eyes
+  eyesOpen: true,
+  currentWpm: 80,         // start ramp from here
+  targetWpm: 300,
+  rampSeconds: 6,
+  punctMultiplier: 2,
+  eyeSensitivity: 5,      // 1–10
+  scheduledTimeout: null,
+  modelLoaded: false,
+  camShown: true,
+  wordsRead: 0,
+  eyeClosedSince: null,   // timestamp when eyes first closed
+  lookAwaySince: null,    // timestamp when face first disappeared
+  pauseThresholdMs: 200,  // ms before triggering pause
+  previousWord: null,     // word shown before pause
+};
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const textInput   = document.getElementById('text-input');
+const wpmSlider   = document.getElementById('wpm-slider');
+const rampSlider  = document.getElementById('ramp-slider');
+const sensSlider  = document.getElementById('sens-slider');
+const punctSlider = document.getElementById('punct-slider');
+const wpmVal      = document.getElementById('wpm-val');
+const rampVal     = document.getElementById('ramp-val');
+const sensVal     = document.getElementById('sens-val');
+const punctVal    = document.getElementById('punct-val');
+const startBtn    = document.getElementById('start-btn');
+const resetBtn    = document.getElementById('reset-btn');
+const wordText    = document.getElementById('word-text');
+const pausedOverlay = document.getElementById('paused-overlay');
+const progressFill = document.getElementById('progress-fill');
+const statWpm     = document.getElementById('stat-wpm');
+const statWord    = document.getElementById('stat-word');
+const statTotal   = document.getElementById('stat-total');
+const video       = document.getElementById('video');
+const overlayCanvas = document.getElementById('overlay-canvas');
+const camDot      = document.getElementById('cam-dot');
+const camLabel    = document.getElementById('cam-label');
+const camBadge    = document.getElementById('cam-badge');
+const camToggle   = document.getElementById('cam-toggle');
+const camWrapper  = document.getElementById('cam-wrapper');
+
+// ─── Sliders ──────────────────────────────────────────────────────────────────
+wpmSlider.addEventListener('input', () => {
+  wpmVal.textContent = wpmSlider.value;
+  state.targetWpm = +wpmSlider.value;
+});
+rampSlider.addEventListener('input', () => {
+  rampVal.textContent = rampSlider.value;
+  state.rampSeconds = +rampSlider.value;
+});
+sensSlider.addEventListener('input', () => {
+  sensVal.textContent = sensSlider.value;
+  state.eyeSensitivity = +sensSlider.value;
+});
+punctSlider.addEventListener('input', () => {
+  punctVal.textContent = punctSlider.value;
+  state.punctMultiplier = +punctSlider.value;
+});
+
+// ─── Text tokenization ────────────────────────────────────────────────────────
+function tokenize(text) {
+  return text.trim().split(/\s+/).filter(Boolean);
+}
+
+function punctuationDelay(word) {
+  const mult = Math.max(1, state.punctMultiplier); // never below 1x base
+  if (/[.!?]$/.test(word)) return mult * 1.5;
+  if (/[,;:]$/.test(word)) return mult * 0.7;
+  return 1;
+}
+
+// ORP pivot letter (optimal recognition point) — roughly 30% from left
+function formatWordWithPivot(word) {
+  if (word.length <= 1) return `<span class="pivot">${word}</span>`;
+  const pivotIdx = Math.max(0, Math.floor(word.length * 0.3));
+  const before = word.slice(0, pivotIdx);
+  const pivot  = word[pivotIdx];
+  const after  = word.slice(pivotIdx + 1);
+  return `${before}<span class="pivot">${pivot}</span>${after}`;
+}
+
+// ─── RSVP Engine ──────────────────────────────────────────────────────────────
+function start() {
+  const raw = textInput.value.trim();
+  if (!raw || state.isPlaying) return;
+
+  state.words = tokenize(raw);
+  state.wordIndex = 0;
+  state.wordsRead = 0;
+  state.currentWpm = 80;
+  state.isPlaying = true;
+  state.isPaused = false;
+  statTotal.textContent = state.words.length;
+  statWord.textContent = '0';
+  progressFill.style.width = '0%';
+
+  startBtn.textContent = 'STOP';
+  scheduleNext();
+}
+
+function stop() {
+  state.isPlaying = false;
+  state.isPaused = false;
+  clearTimeout(state.scheduledTimeout);
+  state.scheduledTimeout = null;
+  wordText.innerHTML = `<span class="idle-msg">stopped</span>`;
+  statWpm.textContent = '—';
+  pausedOverlay.classList.remove('visible');
+  startBtn.textContent = 'START';
+}
+
+function scheduleNext() {
+  if (!state.isPlaying) return;
+  if (state.wordIndex >= state.words.length) { finishReading(); return; }
+
+  if (!state.eyesOpen) {
+    // Pause: wait until eyes open (checked in eye tracking loop)
+    state.isPaused = true;
+    pausedOverlay.classList.add('visible');
+    return;
+  }
+
+  state.isPaused = false;
+  pausedOverlay.classList.remove('visible');
+
+  // Ramp up WPM smoothly
+  const rampWordsCount = Math.ceil(state.targetWpm * (state.rampSeconds / 60));
+  const progress = Math.min(state.wordsRead / rampWordsCount, 1);
+  const eased = progress < 1 ? easeInOut(progress) : 1;
+  state.currentWpm = 80 + (state.targetWpm - 80) * eased;
+
+  const word = state.words[state.wordIndex];
+  displayWord(word);
+
+  // Calculate delay
+  const baseMs = (60 / state.currentWpm) * 1000;
+  const delay = baseMs * punctuationDelay(word);
+
+  state.wordIndex++;
+  state.wordsRead++;
+
+  const pct = (state.wordIndex / state.words.length) * 100;
+  progressFill.style.width = pct + '%';
+  statWpm.textContent = Math.round(state.currentWpm);
+  statWord.textContent = state.wordIndex;
+
+  state.scheduledTimeout = setTimeout(scheduleNext, delay);
+}
+
+function easeInOut(t) {
+  return t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+}
+
+function displayWord(word) {
+  state.previousWord = word;
+  wordText.innerHTML = formatWordWithPivot(word);
+}
+
+function finishReading() {
+  wordText.innerHTML = `<span class="idle-msg">done ✓</span>`;
+  statWpm.textContent = '—';
+  state.isPlaying = false;
+  state.isPaused = false;
+  startBtn.textContent = 'START';
+  progressFill.style.width = '100%';
+}
+
+// Trigger pause and show previous word
+function triggerEyePause(reason) {
+  if (state.isPlaying && !state.isPaused) {
+    clearTimeout(state.scheduledTimeout);
+    state.isPaused = true;
+    pausedOverlay.classList.add('visible');
+    const reasonEl = document.getElementById('paused-reason');
+    if (reasonEl) reasonEl.textContent = reason === 'away' ? '● looking away' : '● eyes closed';
+    // Show previous word
+    if (state.previousWord !== null) {
+      wordText.innerHTML = formatWordWithPivot(state.previousWord);
+    }
+  }
+}
+
+// Called by eye tracker when eyes reopen
+function onEyesReopened() {
+  state.eyeClosedSince = null;
+  state.lookAwaySince = null;
+  if (state.isPlaying && state.isPaused) {
+    state.isPaused = false;
+    // Reset ramp a little
+    state.currentWpm = Math.max(80, state.currentWpm * 0.5);
+    state.wordsRead = Math.floor(state.wordsRead * 0.5); // re-ramp
+    scheduleNext();
+  }
+}
+
+// Reset button
+resetBtn.addEventListener('click', () => {
+  stop();
+  textInput.value = '';
+  progressFill.style.width = '0%';
+  statTotal.textContent = '0';
+  statWord.textContent = '0';
+  wordText.innerHTML = `<span class="idle-msg">ready</span>`;
+});
+
+// Start button managed centrally
+startBtn.addEventListener('click', () => {
+  if (state.isPlaying) {
+    stop();
+  } else {
+    start();
+  }
+});
+
+// ─── Eye Tracking with face-api.js ───────────────────────────────────────────
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
+
+async function loadModels() {
+  try {
+    camDot.className = 'dot loading';
+    camLabel.textContent = 'LOADING MODEL…';
+    camBadge.textContent = 'LOADING';
+
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+
+    await startCamera();
+  } catch (e) {
+    console.error('Model load failed', e);
+    camLabel.textContent = 'MODEL FAILED';
+    camBadge.textContent = 'ERR';
+    startBtn.textContent = 'START (no eye tracking)';
+    startBtn.disabled = false;
+    state.eyesOpen = true;
+  }
+}
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      overlayCanvas.width = video.videoWidth;
+      overlayCanvas.height = video.videoHeight;
+      camDot.className = 'dot open';
+      camLabel.textContent = 'TRACKING';
+      camBadge.textContent = 'LIVE';
+      camBadge.className = 'cam-badge active';
+      startBtn.textContent = 'START';
+      startBtn.disabled = false;
+      state.modelLoaded = true;
+      detectLoop();
+    };
+  } catch (e) {
+    camLabel.textContent = 'CAM DENIED';
+    camBadge.textContent = 'NO CAM';
+    startBtn.textContent = 'START (no eye tracking)';
+    startBtn.disabled = false;
+    state.eyesOpen = true;
+  }
+}
+
+// Eye Aspect Ratio (EAR) — classic blink detection
+function eyeAspectRatio(points) {
+  // points: 6 landmarks [p1..p6] for one eye
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const vertical1 = dist(points[1], points[5]);
+  const vertical2 = dist(points[2], points[4]);
+  const horizontal = dist(points[0], points[3]);
+  return (vertical1 + vertical2) / (2 * horizontal);
+}
+
+let prevEyesOpen = true;
+const earHistory = [];
+const EAR_HISTORY_LEN = 3;
+
+async function detectLoop() {
+  if (!state.modelLoaded) return;
+
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
+  const ctx = overlayCanvas.getContext('2d');
+
+  async function tick() {
+    if (video.readyState === 4) {
+      const detections = await faceapi
+        .detectAllFaces(video, options)
+        .withFaceLandmarks(true);
+
+      ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      if (detections.length > 0) {
+        const lm = detections[0].landmarks;
+        const leftEye  = lm.getLeftEye();   // 6 points
+        const rightEye = lm.getRightEye();  // 6 points
+
+        const leftEAR  = eyeAspectRatio(leftEye);
+        const rightEAR = eyeAspectRatio(rightEye);
+        const ear = (leftEAR + rightEAR) / 2;
+
+        earHistory.push(ear);
+        if (earHistory.length > EAR_HISTORY_LEN) earHistory.shift();
+        const avgEar = earHistory.reduce((a,b)=>a+b,0) / earHistory.length;
+
+        // Threshold zoomed to effective range: slider 1=0.23, 10=0.30
+        const threshold = 0.23 + (state.eyeSensitivity - 1) * (0.07 / 9);
+        const eyesNowOpen = avgEar > threshold;
+
+        // Draw eye markers
+        drawEyeOutline(ctx, leftEye, eyesNowOpen);
+        drawEyeOutline(ctx, rightEye, eyesNowOpen);
+
+        // Reset look-away timer since we see a face
+        state.lookAwaySince = null;
+
+        const now = Date.now();
+        if (!eyesNowOpen) {
+          // Eyes appear closed — start or continue timer
+          if (state.eyeClosedSince === null) {
+            state.eyeClosedSince = now;
+          }
+          const closedFor = now - state.eyeClosedSince;
+          if (closedFor >= state.pauseThresholdMs && state.eyesOpen) {
+            // Confirmed closed long enough — trigger pause
+            state.eyesOpen = false;
+            camDot.className = 'dot closed';
+            camBadge.textContent = 'CLOSED';
+            camBadge.className = 'cam-badge paused-eye';
+            triggerEyePause();
+          }
+        } else {
+          // Eyes open
+          state.eyeClosedSince = null;
+          if (!state.eyesOpen) {
+            state.eyesOpen = true;
+            camDot.className = 'dot open';
+            camBadge.textContent = 'OPEN';
+            camBadge.className = 'cam-badge active';
+            onEyesReopened();
+          } else {
+            camDot.className = 'dot open';
+            camBadge.textContent = 'OPEN';
+            camBadge.className = 'cam-badge active';
+          }
+        }
+      } else {
+        // No face detected — look-away detection with delay
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        state.eyeClosedSince = null;
+
+        const now = Date.now();
+        if (state.lookAwaySince === null) {
+          state.lookAwaySince = now;
+        }
+        const awayFor = now - state.lookAwaySince;
+        if (awayFor >= state.pauseThresholdMs && state.eyesOpen) {
+          state.eyesOpen = false;
+          camDot.className = 'dot closed';
+          camBadge.textContent = 'AWAY';
+          camBadge.className = 'cam-badge paused-eye';
+          triggerEyePause('away');
+        } else if (!state.eyesOpen) {
+          camBadge.textContent = 'AWAY';
+          camBadge.className = 'cam-badge paused-eye';
+        } else {
+          camBadge.textContent = 'NO FACE';
+          camBadge.className = 'cam-badge';
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function drawEyeOutline(ctx, points, open) {
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = open ? '#4ade80' : '#f87171';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// ─── Camera toggle ────────────────────────────────────────────────────────────
+camToggle.addEventListener('click', () => {
+  state.camShown = !state.camShown;
+  document.querySelector('.cam-inner').style.display = state.camShown ? '' : 'none';
+  document.getElementById('cam-resize').style.display = state.camShown ? '' : 'none';
+  camToggle.textContent = state.camShown ? 'hide camera' : 'show camera';
+});
+
+// ─── Camera drag & resize ─────────────────────────────────────────────────────
+(function() {
+  const section = document.getElementById('cam-section');
+  const wrapper = document.getElementById('cam-wrapper');
+  const resizeHandle = document.getElementById('cam-resize');
+
+  // Convert fixed bottom-right positioning to fixed top-left so drag works easily
+  let posX = window.innerWidth - 220;
+  let posY = window.innerHeight - 200;
+  let camW = 200;
+  let camH = 150;
+
+  function applyPos() {
+    section.style.position = 'fixed';
+    section.style.bottom = 'auto';
+    section.style.right = 'auto';
+    section.style.left = posX + 'px';
+    section.style.top = posY + 'px';
+    section.style.alignItems = 'flex-start';
+  }
+
+  function applySize() {
+    wrapper.style.width = camW + 'px';
+    wrapper.style.height = camH + 'px';
+    // Keep canvas synced
+    overlayCanvas.width = video.videoWidth || camW;
+    overlayCanvas.height = video.videoHeight || camH;
+  }
+
+  applyPos();
+  applySize();
+
+  // Drag
+  let dragging = false, dragStartX, dragStartY, startPosX, startPosY;
+  wrapper.addEventListener('mousedown', (e) => {
+    if (e.target === resizeHandle) return;
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    startPosX = posX;
+    startPosY = posY;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (dragging) {
+      posX = startPosX + (e.clientX - dragStartX);
+      posY = startPosY + (e.clientY - dragStartY);
+      applyPos();
+    }
+    if (resizing) {
+      camW = Math.max(120, startW + (e.clientX - resizeStartX));
+      camH = Math.max(90, startH + (e.clientY - resizeStartY));
+      applySize();
+    }
+  });
+  document.addEventListener('mouseup', () => { dragging = false; resizing = false; });
+
+  // Resize
+  let resizing = false, resizeStartX, resizeStartY, startW, startH;
+  resizeHandle.addEventListener('mousedown', (e) => {
+    resizing = true;
+    resizeStartX = e.clientX;
+    resizeStartY = e.clientY;
+    startW = camW;
+    startH = camH;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+})();
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadModels();
+</script>
+</body>
+</html>
